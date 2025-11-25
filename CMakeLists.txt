@@ -7,6 +7,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(CITYSENSE_WARN_AS_ERR "Treat warnings as errors for project sources" ON)
 option(CITYSENSE_ENABLE_STRICT_TESTS "Build and run strict (grading) tests" ON)
 
+add_custom_target(copy_data ALL
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+          ${CMAKE_SOURCE_DIR}/data
+          ${CMAKE_BINARY_DIR}/data
+)
+
 add_library(citysense_lib INTERFACE)
 target_include_directories(citysense_lib INTERFACE
     ${PROJECT_SOURCE_DIR}/src

@@ -1,0 +1,7 @@
+{
+  "total_count": 7,
+  "by_zone": [
+    { "zone": 1, "count": 4 },
+    { "zone": 2, "count": 3 }
+  ]
+}

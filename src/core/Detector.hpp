@@ -2,9 +2,8 @@
 
 namespace core {
 
-class Window; // forward decl
+struct Window;
 
-// Minimal detector contract. Students can extend with return values or reports.
 class Detector {
 public:
     virtual ~Detector() = default;

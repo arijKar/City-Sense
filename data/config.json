@@ -1,4 +1,4 @@
 {
-  "inputs": ["data/air.csv"],
+  "inputs": ["data/noise.csv"],
   "window_minutes": 5
 }

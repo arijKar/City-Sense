@@ -6,7 +6,7 @@
 namespace model {
 
 struct SensorRecord {
-    std::chrono::system_clock::time_point ts{};
+    std::chrono::system_clock::time_point ts{}; // timestamp
     std::string sensor_id;
     int zone_id{0};
 

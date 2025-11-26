@@ -3,35 +3,83 @@
 #include "../core/Window.hpp"
 #include "../model/SensorRecord.hpp"
 
+#include <algorithm>
 #include <chrono>
+#include <sstream>
+#include <string>
+#include <vector>
 
 namespace detectors {
 
+struct BasicStats {
+    double mean{0.0};
+    double median{0.0};
+    double p90{0.0};
+    double p99{0.0};
+};
+
+inline BasicStats compute_basic_stats(std::vector<double> values) {
+    BasicStats s{};
+    if (values.empty()) return s;
+
+    std::sort(values.begin(), values.end());
+    std::size_t n = values.size();
+
+    double sum = 0.0;
+    for (double v : values) sum += v;
+    s.mean = sum / static_cast<double>(n);
+
+    auto get_percentile = [&](double p) {
+        if (n == 1) return values[0];
+        double idx = p * (n - 1);
+        std::size_t i = static_cast<std::size_t>(idx);
+        std::size_t j = std::min(i + 1, n - 1);
+        double frac = idx - static_cast<double>(i);
+        return values[i] + (values[j] - values[i]) * frac;
+    };
+
+    s.median = get_percentile(0.5);
+    s.p90    = get_percentile(0.9);
+    s.p99    = get_percentile(0.99);
+
+    return s;
+}
+
 class AirAlert : public core::Detector {
     double pm25_thr_;
+    std::vector<std::string>* alerts_; // where we store messages
 
 public:
-    explicit AirAlert(double pm25_thr) : pm25_thr_(pm25_thr) {}
+    explicit AirAlert(double pm25_thr,
+                      std::vector<std::string>* alerts = nullptr)
+        : pm25_thr_(pm25_thr), alerts_(alerts) {}
 
     void detect(const core::Window& w) override {
         if (w.records.empty()) return;
 
-        double sum_pm25 = 0.0;
-        std::size_t count_pm25 = 0;
+        std::vector<double> pm_values;
+        pm_values.reserve(w.records.size());
 
         for (const auto& rec : w.records) {
             if (rec.pm25.has_value()) {
-                sum_pm25 += *rec.pm25;
-                ++count_pm25;
+                pm_values.push_back(*rec.pm25);
             }
         }
+        if (pm_values.empty()) return;
 
-        if (count_pm25 == 0) return;
+        BasicStats stats = compute_basic_stats(pm_values);
 
-        double mean = sum_pm25 / static_cast<double>(count_pm25);
-        if (mean > pm25_thr_) {
-            // Real system: record an event or trigger callback.
-            // For now: just perform the computation without side effects.
+        if (stats.mean > pm25_thr_ || stats.p90 > pm25_thr_) {
+            if (alerts_) {
+                std::ostringstream oss;
+                oss << "[AirAlert] High PM2.5 detected. "
+                    << "mean=" << stats.mean
+                    << ", median=" << stats.median
+                    << ", p90=" << stats.p90
+                    << ", p99=" << stats.p99
+                    << " (threshold=" << pm25_thr_ << ")";
+                alerts_->push_back(oss.str());
+            }
         }
     }
 };

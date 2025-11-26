@@ -3,5 +3,10 @@
   "by_zone": [
     { "zone": 1, "count": 12 },
     { "zone": 2, "count": 9 }
+  ],
+  "alerts": [
+    "[TrafficCongestion] Possible congestion. avg_speed=35.7143 km/h, median=35.7143 km/h, p90=35.7143 km/h, p99=35.7143 km/h (threshold=40 km/h, consec_min=3)",
+    "[AirAlert] High PM2.5 detected. mean=44.1429, median=42, p90=65, p99=67.7 (threshold=35)",
+    "[NoiseSpike] Loud noise detected. mean=80.7143, median=85, p90=92, p99=94.7 (spike_thr=80 dB)"
   ]
 }

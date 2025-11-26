@@ -116,7 +116,7 @@ public:
                         throw std::runtime_error(
                             "ReaderCSV: no input files could be opened");
                     }
-                    break; // nothing more to read
+                    break; 
                 }
             }
 

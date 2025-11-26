@@ -15,24 +15,16 @@ namespace io {
 
 namespace detail {
 
-/*
-returns a copy of a given string with whitespace removed -> using isspace
-param: input string (copied by val)
-return: trimmed copy of s or empty string if all whitespace 
-*/ 
+// Trim leading/trailing whitespace from a copy of the string.
 inline std::string trim_copy(std::string s) {
     auto is_space = [](unsigned char c) { return std::isspace(c); };
-    auto tmp1 = std::find_if_not(s.begin(), s.end(), is_space);
-    auto tmp2 = std::find_if_not(s.rbegin(), s.rend(), is_space).base();
-    if (tmp1 >= tmp2) return {};
-    return std::string(tmp1, tmp2);
+    auto it1 = std::find_if_not(s.begin(), s.end(), is_space);
+    auto it2 = std::find_if_not(s.rbegin(), s.rend(), is_space).base();
+    if (it1 >= it2) return {};
+    return std::string(it1, it2);
 }
 
-/*
-return a lowercased copy of the input string -> using tolower 
-param: s input string (copied by val)
-return: new string where all chars are now lowercase
-*/
+// Return a lower-cased copy of the string.
 inline std::string to_lower_copy(std::string s) {
     std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
         return static_cast<char>(std::tolower(c));
@@ -40,12 +32,7 @@ inline std::string to_lower_copy(std::string s) {
     return s;
 }
 
-/*
-splits a csv line into trimmed fields separated by commas 
--> ',' is separator, trims whitespace, returns all fields even empty ones 
-param: line CSV line to split 
-return: vector of trimmed cells in order of appearance 
-*/
+// Split a CSV line on commas and trim each field.
 inline std::vector<std::string> split_csv_line(const std::string& line) {
     std::vector<std::string> out;
     std::string cell;
@@ -56,16 +43,12 @@ inline std::vector<std::string> split_csv_line(const std::string& line) {
     return out;
 }
 
-/*
-parses a string into an optional double 
--> trims whitespace, returns nullopt if string empty, verifies entire string was consumed, 
-   returns nullopt on any parse error 
-param: string to parse 
-return: parsed double or nullopt if parsing fails or string empty 
-*/
+// Try to parse a double from a string.
+// Empty/invalid strings return std::nullopt.
 inline std::optional<double> parse_optional_double(const std::string& s) {
     auto t = trim_copy(s);
     if (t.empty()) return std::nullopt;
+
     try {
         std::size_t pos = 0;
         double v = std::stod(t, &pos);
@@ -76,15 +59,10 @@ inline std::optional<double> parse_optional_double(const std::string& s) {
     }
 }
 
-/*
-best-effort parsing of a timestamp from a string 
-- trims whitespace 
-- interprets the string as an integer number of minutes since epoch -> using stoll
-- on success, returns std::chrono::system_clock::time_point from minute count 
-- on failure or empty input, returns default time_point (caller treats as "missing") 
-param: string representation of a timestamp 
-return: parsed time point or default time point on failure 
-*/
+// Very simple timestamp parser used for this project.
+//
+// We treat the input as an integer number of minutes since epoch.
+// If it fails, or the string is empty, we just return the default time_point.
 inline std::chrono::system_clock::time_point parse_timestamp_best_effort(
     const std::string& s)
 {
@@ -92,6 +70,7 @@ inline std::chrono::system_clock::time_point parse_timestamp_best_effort(
     if (t.empty()) {
         return {};
     }
+
     try {
         std::size_t pos = 0;
         long long v = std::stoll(t, &pos);
@@ -100,40 +79,32 @@ inline std::chrono::system_clock::time_point parse_timestamp_best_effort(
             return std::chrono::system_clock::time_point{minutes{v}};
         }
     } catch (...) {
-        // fall through to default
+        // ignore and fall through
     }
     return {};
 }
 
 } // namespace detail
 
-/*
-Streaming reader over one or more CSV files of sensor data.
-- Skips any files that can't be opened.
-- Parses a header row to discover column positions by name.
-- Validates that required columns are present: timestamp/ts sensor_id/sensor one_id/zone 
-- Skips malformed data rows (e.g., bad numeric values).
-column names: timestamp, ts, sensor_id, sensor, zone_id, zone,
-  speed, flow, pm25, pm10, db, noise, noise_db
-*/
+// Reader over one or more CSV files of sensor data.
+//
+//  - tries to open each path from the list (skips ones that fail)
+//  - reads a header line and discovers column indices by name
+//  - requires timestamp/ts, sensor_id/sensor, and zone_id/zone
+//  - parses each row into a SensorRecord
+//  - skips rows with bad zone_id or other malformed values
 class ReaderCSV {
 public:
-    /* 
-    list of file paths to read, in the order they should be processed.
-    */
+    // Constructor takes a list of file paths in the order we want to read them.
     explicit ReaderCSV(std::vector<std::string> inputs)
       : inputs_(std::move(inputs)) {}
 
-    /*
-    reads next batch of sensor records.
-    - Opens input files as needed.
-    - Parses and validates the header of each file to discover column indices.
-    - Reads data lines from the current file.
-    - Skips empty lines and malformed rows.
-    - When all input files are exhausted:
-    param: max_rows max number of records to return in this batch. If 0, an empty vector is returned.
-    return: vector of parsed SensorRecord objects, size in [0, max_rows].
-    */
+    // Read up to max_rows SensorRecord objects.
+    //
+    // - Opens files on demand.
+    // - Validates the header the first time we see it.
+    // - Returns as soon as we either hit max_rows or run out of data.
+    // - If no file could be opened at all, throws std::runtime_error.
     std::vector<model::SensorRecord> next_batch(std::size_t max_rows = 1000) {
         std::vector<model::SensorRecord> result;
         if (max_rows == 0) return result;
@@ -144,9 +115,8 @@ public:
                     if (!opened_any_file_) {
                         throw std::runtime_error(
                             "ReaderCSV: no input files could be opened");
-                    } else {
-                        break; 
                     }
+                    break; // nothing more to read
                 }
             }
 
@@ -156,7 +126,7 @@ public:
                     close_current_file();
                     continue;
                 }
-                parse_header(header_line);  
+                parse_header(header_line);
                 header_parsed_ = true;
                 continue;
             }
@@ -166,51 +136,22 @@ public:
                 close_current_file();
                 continue;
             }
-            if (line.empty()) continue;
+            if (line.empty()) {
+                continue;
+            }
 
             auto rec = parse_record(line);
             if (rec) {
                 result.push_back(std::move(*rec));
             }
-            
+            // malformed rows are just ignored
         }
 
         return result;
     }
 
 private:
-    /*
-    opens the next readable input file.
-
-    - Closes any currently open file.
-    - Iterates from the current file index onward until it finds a file
-      that can be opened; files that fail to open are skipped.
-    - On success, resets header_parsed_ and marks opened_any_file_.
-
-    return: true if a file was opened, false if no remaining file could be opened.
-    */
-    bool open_next_file() {
-        close_current_file();
-
-        while (current_index_ < inputs_.size()) {
-            current_.clear();
-            current_.open(inputs_[current_index_]);
-
-            ++current_index_; 
-
-            if (current_) {
-                header_parsed_ = false;
-                opened_any_file_ = true;
-                return true;
-            }
-        
-        }
-        return false;
-    }
-
-    /*
-    closes the currently open file, if any, and resets header state.
-    */
+    // Close the current file, if any, and reset header state.
     void close_current_file() {
         if (current_.is_open()) {
             current_.close();
@@ -218,22 +159,36 @@ private:
         header_parsed_ = false;
     }
 
-    /*
-    parses CSV header line and records column indices for known fields.
+    // Try to open the next file from inputs_.
+    // Files that fail to open are skipped.
+    bool open_next_file() {
+        close_current_file();
 
-    - Column names are trimmed, lowercased, then matched against a small set
-      of known identifiers like timestamp, sensor_id, zone_id, etc.
-    - After scanning, the function enforces that the following are present:
-        * timestamp
-        * sensor_id 
-        * zone_id 
-      Missing  causes std::runtime_error.
+        while (current_index_ < inputs_.size()) {
+            current_.clear();
+            current_.open(inputs_[current_index_]);
+            ++current_index_;
 
-    param: raw header line
-    throws: std::runtime_error if required columns are missing.
-    */
+            if (current_) {
+                header_parsed_ = false;
+                opened_any_file_ = true;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Parse the header line and figure out which column index is which.
+    //
+    // We accept:
+    //   timestamp or ts
+    //   sensor_id or sensor
+    //   zone_id or zone
+    //
+    // If any of those are missing, we throw.
     void parse_header(const std::string& line) {
         using namespace detail;
+
         auto cols = split_csv_line(line);
         col_ts_ = col_sensor_ = col_zone_ =
             col_speed_ = col_flow_ = col_pm25_ = col_pm10_ = col_db_ = -1;
@@ -259,7 +214,6 @@ private:
             }
         }
 
-        // enforce required columns
         if (col_ts_ < 0) {
             throw std::runtime_error(
                 "ReaderCSV: required column 'timestamp' (or 'ts') is missing");
@@ -274,15 +228,13 @@ private:
         }
     }
 
-    /*
-    parses a single CSV data line into a SensorRecord.
-    param: csv data line to parse 
-    return: fully populated SensorRecord on success, or std::nullopt if malformed. 
-    */
+    // Parse a single data row into a SensorRecord.
+    // If we can't get a valid zone_id, we return std::nullopt.
     std::optional<model::SensorRecord> parse_record(const std::string& line) const {
         using namespace detail;
 
         auto fields = split_csv_line(line);
+
         auto get_field = [&](int idx) -> std::string {
             if (idx < 0 || static_cast<std::size_t>(idx) >= fields.size()) {
                 return {};
@@ -291,8 +243,11 @@ private:
         };
 
         model::SensorRecord rec;
+
         rec.ts = parse_timestamp_best_effort(get_field(col_ts_));
         rec.sensor_id = get_field(col_sensor_);
+
+        // zone_id must be present and parse as an int
         {
             auto z = get_field(col_zone_);
             if (z.empty()) {
@@ -304,6 +259,7 @@ private:
                 return std::nullopt;
             }
         }
+
         if (col_speed_ >= 0) {
             rec.speed = parse_optional_double(get_field(col_speed_));
         }
@@ -319,6 +275,7 @@ private:
         if (col_db_ >= 0) {
             rec.db = parse_optional_double(get_field(col_db_));
         }
+
         return rec;
     }
 
@@ -338,4 +295,4 @@ private:
     int col_db_{-1};
 };
 
-}
+} // namespace io

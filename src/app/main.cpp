@@ -6,6 +6,7 @@
 #include <exception>
 #include <iomanip>
 #include <ctime>
+#include <chrono>
 
 #include "io/ReaderCSV.hpp"
 #include "io/ReaderJSON.hpp"
@@ -102,9 +103,22 @@ int main(int argc, char** argv) {
             [&](sim::Clock& clk, std::vector<model::SensorRecord>& batch) {
                 // --- simple log for each simulation tick ---
                 auto tp = clk.now();
-                std::time_t t = std::chrono::system_clock::to_time_t(tp);
+                std::time_t time_value =
+                    std::chrono::system_clock::to_time_t(tp);
+
+                // portable conversion to UTC tm
+                std::tm utc_tm{};
+            #ifdef _MSC_VER
+                // MSVC "safe" version
+                gmtime_s(&utc_tm, &time_value);
+            #else
+                if (auto* p = std::gmtime(&time_value)) {
+                    utc_tm = *p;
+                }
+            #endif
+
                 std::cout << "[sim] tick " << cp_state.batches_processed
-                          << " | time=" << std::put_time(std::gmtime(&t), "%Y-%m-%d %H:%M:%S UTC")
+                          << " | time=" << std::put_time(&utc_tm, "%Y-%m-%d %H:%M:%S UTC")
                           << " | batch_size=" << batch.size() << "\n";
 
                 // 1) group current batch by zone_id
@@ -125,8 +139,8 @@ int main(int argc, char** argv) {
                         }
                     );
                 }
-                for (auto& t : threads) {
-                    t.join();
+                for (auto& th : threads) {
+                    th.join();
                 }
 
                 // 3) run detectors on current window (read-only)

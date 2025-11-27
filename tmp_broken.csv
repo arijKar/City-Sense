@@ -1,0 +1,4 @@
+timestamp,sensor_id,zone_id,speed,flow,pm25,pm10,db
+2025-10-13T08:00:00Z,A1,1,50,100,22,30,70
+BROKEN_LINE_WITH_TOO_FEW_FIELDS
+2025-10-13T08:01:00Z,A1,1,40,90,25,32,75

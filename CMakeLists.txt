@@ -42,6 +42,11 @@ include(FetchContent)
 FetchContent_Declare(Catch2 URL https://github.com/catchorg/Catch2/archive/refs/tags/v3.6.0.zip)
 FetchContent_MakeAvailable(Catch2)
 
+# Tell CMake to use the Catch2 v3 CMake modules we just fetched
+list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
+
+include(CTest)
+include(Catch)
 enable_testing()
 
 # Public tests (fast, smoke)
@@ -52,8 +57,7 @@ add_executable(citysense_tests
 )
 target_link_libraries(citysense_tests PRIVATE citysense_lib Catch2::Catch2WithMain)
 apply_warnings(citysense_tests)
-include(CTest)
-include(Catch)
+
 catch_discover_tests(citysense_tests
   TEST_PREFIX "public::"
   REPORTER junit
@@ -82,3 +86,25 @@ if (CITYSENSE_ENABLE_STRICT_TESTS)
     PROPERTIES LABELS "strict"
   )
 endif()
+
+# -----------------------------
+# Custom simulator/system tests
+# -----------------------------
+# tests/citysenseTest.cpp uses its own tiny test harness (has a main()),
+# so we don't link Catch2 here.
+add_executable(citysense_custom_tests
+  ${PROJECT_SOURCE_DIR}/tests/citysenseTest.cpp
+)
+
+target_link_libraries(citysense_custom_tests PRIVATE citysense_lib)
+apply_warnings(citysense_custom_tests)
+
+# Needed for std::thread on Linux (not on macOS)
+if (UNIX AND NOT APPLE)
+  target_link_libraries(citysense_custom_tests PRIVATE pthread)
+endif()
+
+add_test(
+  NAME custom::citysense
+  COMMAND citysense_custom_tests
+)

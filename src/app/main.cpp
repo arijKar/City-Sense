@@ -4,6 +4,8 @@
 #include <unordered_map>
 #include <thread>
 #include <exception>
+#include <iomanip>
+#include <ctime>
 
 #include "io/ReaderCSV.hpp"
 #include "io/ReaderJSON.hpp"
@@ -15,6 +17,11 @@
 #include "export/ConsolePrinter.hpp"
 #include "export/JsonExporter.hpp"
 #include "model/SensorRecord.hpp"
+
+// simulator pieces
+#include "sim/Clock.hpp"
+#include "sim/Replayer.hpp"
+#include "sim/Checkpoint.hpp"
 
 int main(int argc, char** argv) {
     try {
@@ -32,10 +39,9 @@ int main(int argc, char** argv) {
         io::ReaderCSV csv_reader(cfg.inputs);
         core::Aggregator aggregator(cfg.window_minutes);
 
-        // vector that will collect all alert lines from detectors
+        // all detectors push alerts into this vector
         std::vector<std::string> alerts;
 
-        // Detectors share the same alert sink
         detectors::TrafficCongestion traffic_det{
             /*speed_thr=*/40.0,
             /*consec_min=*/3,
@@ -60,51 +66,94 @@ int main(int argc, char** argv) {
         export_::ConsolePrinter console_printer;
         export_::JsonExporter   json_exporter("report.json");
 
-        // --- 3. Ingestion loop (batch by batch) ---
-        constexpr std::size_t BATCH_SIZE = 1000;
+        // --- 3. Simulator: clock + checkpoint + replayer ---
 
-        for (;;) {
-            auto batch = csv_reader.next_batch(BATCH_SIZE);
-            if (batch.empty()) {
-                break; // no more data
-            }
+        // for demo, set this small (e.g., 3) to really see step-by-step replay
+        constexpr std::size_t BATCH_SIZE   = 1000;
+        constexpr int         STEP_SECONDS = 60; // 1 simulated minute per tick
 
-            // group current batch by zone_id
-            std::unordered_map<int, std::vector<model::SensorRecord>> per_zone;
-            per_zone.reserve(batch.size());
-            for (auto& rec : batch) {
-                per_zone[rec.zone_id].push_back(rec);
-            }
+        sim::Checkpoint      checkpoint{"checkpoint.bin"};
+        sim::CheckpointState cp_state{};
 
-            // one thread per zone, each thread calls aggregator.consume(...)
-            std::vector<std::thread> threads;
-            threads.reserve(per_zone.size());
-            for (auto& [zone, records] : per_zone) {
-                (void)zone;
-                threads.emplace_back(
-                    [&aggregator, local = std::move(records)]() mutable {
-                        aggregator.consume(local);
-                    }
-                );
-            }
-            for (auto& t : threads) {
-                t.join();
-            }
-
-            // Run detectors on current window (read-only view)
-            const core::Window& window = aggregator.current_window_view();
-            for (auto* det : detectors) {
-                det->detect(window);
-            }
+        // Try to load previous time; we always replay data from the start,
+        // but we remember the last simulated time + batch count.
+        bool resume = false;
+        try {
+            cp_state = checkpoint.load();
+            resume = true;
+        } catch (...) {
+            cp_state.now = std::chrono::system_clock::now();
+            cp_state.batches_processed = 0;
         }
+
+        if (resume) {
+            std::cout << "[sim] Resuming simulation time from checkpoint. "
+                      << "batches_processed=" << cp_state.batches_processed << "\n";
+        } else {
+            std::cout << "[sim] Starting fresh simulation.\n";
+        }
+
+        sim::Clock    clock(cp_state.now, STEP_SECONDS);
+        sim::Replayer replayer;
+
+        replayer.run(
+            clock,
+            csv_reader,
+            [&](sim::Clock& clk, std::vector<model::SensorRecord>& batch) {
+                // --- simple log for each simulation tick ---
+                auto tp = clk.now();
+                std::time_t t = std::chrono::system_clock::to_time_t(tp);
+                std::cout << "[sim] tick " << cp_state.batches_processed
+                          << " | time=" << std::put_time(std::gmtime(&t), "%Y-%m-%d %H:%M:%S UTC")
+                          << " | batch_size=" << batch.size() << "\n";
+
+                // 1) group current batch by zone_id
+                std::unordered_map<int, std::vector<model::SensorRecord>> per_zone;
+                per_zone.reserve(batch.size());
+                for (auto& rec : batch) {
+                    per_zone[rec.zone_id].push_back(rec);
+                }
+
+                // 2) one thread per zone, each calls aggregator.consume(...)
+                std::vector<std::thread> threads;
+                threads.reserve(per_zone.size());
+                for (auto& [zone, records] : per_zone) {
+                    (void)zone;
+                    threads.emplace_back(
+                        [&aggregator, local = std::move(records)]() mutable {
+                            aggregator.consume(local);
+                        }
+                    );
+                }
+                for (auto& t : threads) {
+                    t.join();
+                }
+
+                // 3) run detectors on current window (read-only)
+                const core::Window& window = aggregator.current_window_view();
+                for (auto* det : detectors) {
+                    det->detect(window);
+                }
+
+                // 4) update and save simulator state (for pause/resume *time info*)
+                cp_state.now = clk.now();
+                ++cp_state.batches_processed;
+                checkpoint.save(cp_state);
+            },
+            BATCH_SIZE
+            // max_ticks = default (-1) -> run until reader is empty
+        );
+
+        std::cout << "[sim] Finished replay. Total batches processed = "
+                  << cp_state.batches_processed << "\n\n";
 
         // --- 4. Final summary & reports ---
         core::Summary summary = aggregator.summary();
 
-        // Console report: summary + all detected events
+        // Console report: summary + same alerts as JSON
         console_printer.emit(summary, alerts);
 
-        // JSON report: same summary + same alerts (consistent with console)
+        // JSON report: consistent with console
         json_exporter.emit(summary, alerts);
 
         return 0;

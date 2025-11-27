@@ -1,0 +1,6 @@
+{
+  "window_minutes": 10,
+  "inputs": [
+    { "path": "tmp_broken.csv", "type": "csv" }
+  ]
+}

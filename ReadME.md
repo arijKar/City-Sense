@@ -15,6 +15,22 @@ The project focuses on modular design, RAII, exception safety, concurrency, and 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j 
+./build/citysense data/config.json 
 
+# Configure (first time or after deleting build/)
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 
- ./build/citysense data/config.json 
+# Build everything
+cmake --build build -j
+
+# Run main pipeline
+./build/citysense data/config.json
+
+# Run custom tests
+./build/citysense_custom_tests
+
+# Run Catch2 tests
+cd build
+ctest           # all
+ctest -R public # only public
+ctest -R strict # only strict

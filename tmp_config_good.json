@@ -1,0 +1,6 @@
+{
+  "window_minutes": 10,
+  "inputs": [
+    { "path": "data/air.csv", "type": "csv" }
+  ]
+}

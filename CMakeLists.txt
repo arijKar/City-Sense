@@ -60,9 +60,6 @@ apply_warnings(citysense_tests)
 
 catch_discover_tests(citysense_tests
   TEST_PREFIX "public::"
-  REPORTER junit
-  OUTPUT_DIR ${CMAKE_BINARY_DIR}/test-results
-  OUTPUT_PREFIX "public-"
 )
 
 # Strict tests (grading)
@@ -80,9 +77,6 @@ if (CITYSENSE_ENABLE_STRICT_TESTS)
   endif()
   catch_discover_tests(citysense_tests_strict
     TEST_PREFIX "strict::"
-    REPORTER junit
-    OUTPUT_DIR ${CMAKE_BINARY_DIR}/test-results
-    OUTPUT_PREFIX "strict-"
     PROPERTIES LABELS "strict"
   )
 endif()

@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <cstddef>
 #include "core/Aggregator.hpp"
 #include "core/Detector.hpp"
 #include "core/Window.hpp"
@@ -22,5 +23,4 @@ TEST_CASE("Public API surfaces exist (types, methods)") {
 
     io::ReaderCSV reader({ "data/air.csv" });
     auto batch = reader.next_batch(10);
-    REQUIRE(batch.size() >= 0);
-}
+    REQUIRE(static_cast<std::ptrdiff_t>(batch.size()) >= 0);}

@@ -18,8 +18,6 @@
 #include "export/ConsolePrinter.hpp"
 #include "export/JsonExporter.hpp"
 #include "model/SensorRecord.hpp"
-
-// simulator pieces
 #include "sim/Clock.hpp"
 #include "sim/Replayer.hpp"
 #include "sim/Checkpoint.hpp"
@@ -39,8 +37,6 @@ int main(int argc, char** argv) {
         // --- 2. Set up pipeline components ---
         io::ReaderCSV csv_reader(cfg.inputs);
         core::Aggregator aggregator(cfg.window_minutes);
-
-        // all detectors push alerts into this vector
         std::vector<std::string> alerts;
 
         detectors::TrafficCongestion traffic_det{
@@ -69,15 +65,12 @@ int main(int argc, char** argv) {
 
         // --- 3. Simulator: clock + checkpoint + replayer ---
 
-        // for demo, set this small (e.g., 3) to really see step-by-step replay
         constexpr std::size_t BATCH_SIZE   = 1000;
-        constexpr int         STEP_SECONDS = 60; // 1 simulated minute per tick
+        constexpr int         STEP_SECONDS = 60; 
 
         sim::Checkpoint      checkpoint{"checkpoint.bin"};
         sim::CheckpointState cp_state{};
 
-        // Try to load previous time; we always replay data from the start,
-        // but we remember the last simulated time + batch count.
         bool resume = false;
         try {
             cp_state = checkpoint.load();

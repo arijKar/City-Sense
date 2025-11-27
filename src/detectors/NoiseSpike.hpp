@@ -11,6 +11,11 @@
 
 namespace detectors {
 
+/*
+basic stats for noise (dB)
+- mean / median: typical level
+- p90 / p99: loud tail of the distribution
+*/
 struct NoiseStats {
     double mean{0.0};
     double median{0.0};
@@ -18,6 +23,10 @@ struct NoiseStats {
     double p99{0.0};
 };
 
+/*
+compute stats for a list of dB values
+- sorts values and fills NoiseStats
+*/
 inline NoiseStats compute_noise_stats(std::vector<double> values) {
     NoiseStats s{};
     if (values.empty()) return s;
@@ -44,6 +53,14 @@ inline NoiseStats compute_noise_stats(std::vector<double> values) {
     return s;
 }
 
+/*
+noise spike detector
+- db_thr_: how loud is “loud”
+- count_thr_: how many loud readings we need
+- window_min_: time window in minutes for those loud readings
+- if we see many loud points close in time, or p99 >= db_thr_,
+  we push a simple alert string
+*/
 class NoiseSpike : public core::Detector {
     double db_thr_;
     int    count_thr_;

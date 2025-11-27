@@ -20,13 +20,11 @@ Detect Events
 //   - a summary of how many records we have per zone
 //   - a list of detected events (one per line)
 struct ConsolePrinter {
-    // Old-style entry point: only summary, no events.
     void emit(const core::Summary& s) const {
         static const std::vector<std::string> no_events;
         emit(s, no_events);
     }
 
-    // New version: summary + event messages (e.g., from detectors).
     void emit(const core::Summary& s,
               const std::vector<std::string>& events) const {
         std::cout << "        CitySense Report      \n";

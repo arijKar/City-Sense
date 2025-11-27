@@ -12,6 +12,11 @@
 
 namespace detectors {
 
+/*
+basic stats for speeds (stored in m/s here)
+- mean / median: overall speed level
+- p90 / p99: faster tail, just for context in the alert
+*/
 struct SpeedStats {
     double mean{0.0};
     double median{0.0};
@@ -19,6 +24,10 @@ struct SpeedStats {
     double p99{0.0};
 };
 
+/*
+compute stats for a list of speeds
+- sorts the vector and fills SpeedStats
+*/
 inline SpeedStats compute_speed_stats(std::vector<double> values) {
     SpeedStats s{};
     if (values.empty()) return s;
@@ -45,6 +54,14 @@ inline SpeedStats compute_speed_stats(std::vector<double> values) {
     return s;
 }
 
+/*
+traffic congestion detector
+- speed_thr_kmh_: threshold for “slow traffic”
+- consec_min_: how many slow minutes in a row we need
+- groups readings per minute, checks if we have a run of slow minutes
+- also checks if average speed over the window is below threshold
+- if so, pushes a short congestion alert into alerts_
+*/
 class TrafficCongestion : public core::Detector {
     double speed_thr_kmh_;
     int    consec_min_;
@@ -71,7 +88,7 @@ public:
                 duration_cast<minutes>(rec.ts.time_since_epoch()).count();
 
             auto& bucket = buckets[mins_since_epoch];
-            bucket.first  += *rec.speed; // assume km/h
+            bucket.first  += *rec.speed; // km/h
             bucket.second += 1;
         }
 

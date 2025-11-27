@@ -81,11 +81,8 @@ if (CITYSENSE_ENABLE_STRICT_TESTS)
   )
 endif()
 
-# -----------------------------
+
 # Custom simulator/system tests
-# -----------------------------
-# tests/citysenseTest.cpp uses its own tiny test harness (has a main()),
-# so we don't link Catch2 here.
 add_executable(citysense_custom_tests
   ${PROJECT_SOURCE_DIR}/tests/citysenseTest.cpp
 )

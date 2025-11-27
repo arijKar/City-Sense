@@ -11,6 +11,12 @@
 
 namespace detectors {
 
+/*
+basic stats for pm25
+- mean: average
+- median: middle value
+- p90/p99: high percentiles to see spikes
+*/
 struct BasicStats {
     double mean{0.0};
     double median{0.0};
@@ -18,6 +24,10 @@ struct BasicStats {
     double p99{0.0};
 };
 
+/*
+compute stats for a list of values
+- makes a copy, sorts it and fills BasicStats
+*/
 inline BasicStats compute_basic_stats(std::vector<double> values) {
     BasicStats s{};
     if (values.empty()) return s;
@@ -45,9 +55,15 @@ inline BasicStats compute_basic_stats(std::vector<double> values) {
     return s;
 }
 
+/*
+air quality detector based on pm25
+- reads pm25 from the window
+- computes stats
+- if mean or p90 > pm25_thr_ it pushes a text alert
+*/
 class AirAlert : public core::Detector {
     double pm25_thr_;
-    std::vector<std::string>* alerts_; // where we store messages
+    std::vector<std::string>* alerts_; // optional sink for messages
 
 public:
     explicit AirAlert(double pm25_thr,

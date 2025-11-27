@@ -83,7 +83,7 @@ static std::string write_temp_file(const std::string& name,
 // • Ensure records are safe.
 
 void test_csv_parsing_broken_lines() {
-    // 1) Create a small CSV with one broken line.
+   
     const std::string csv =
         "timestamp,sensor_id,zone_id,speed,flow,pm25,pm10,db\n"
         "2025-10-13T08:00:00Z,A1,1,50,100,22,30,70\n"
@@ -92,7 +92,6 @@ void test_csv_parsing_broken_lines() {
 
     std::string csv_path = write_temp_file("broken.csv", csv);
 
-    // 2) Config that points to that CSV (same structure as main).
     const std::string cfg_json =
         "{\n"
         "  \"window_minutes\": 10,\n"
@@ -116,9 +115,6 @@ void test_csv_parsing_broken_lines() {
     EXPECT_EQ(batch[1].zone_id, 1);
 }
 
-// JSON parsing: just check we can handle good + weird JSON without crashing.
-// We don't force ReaderJSON to throw, because your implementation may just
-// treat bad fields as defaults.
 
 void test_json_parsing_good_and_bad() {
     // good config
@@ -135,7 +131,7 @@ void test_json_parsing_good_and_bad() {
         io::ReaderJSON cfg_reader(good_path);
         io::Config cfg = cfg_reader.read();
         EXPECT_EQ(cfg.window_minutes, 10);
-        EXPECT_TRUE(!cfg.inputs.empty());  // at least one input
+        EXPECT_TRUE(!cfg.inputs.empty());  
     }
 
     // "Bad" config: wrong field names / types.
@@ -155,8 +151,6 @@ void test_json_parsing_good_and_bad() {
         } catch (const std::exception&) {
             threw = true;
         }
-        // Either is fine: throwing or using defaults.
-        // We don't assert on 'threw' here; we only care we didn't crash.
         (void)threw;
     }
 }
@@ -188,14 +182,13 @@ void test_aggregator_basic_summary() {
     v.push_back(r2);
 
     model::SensorRecord r3;
-    r3.ts = mk_ts(10); // far in the future -> others will be evicted
+    r3.ts = mk_ts(10);
     r3.zone_id = 2;
     v.push_back(r3);
 
     agg.consume(v);
     core::Summary s = agg.summary();
 
-    // only r3 should remain in the 5-minute sliding window
     EXPECT_EQ(s.total_count, 1);
     EXPECT_EQ(s.by_zone.size(), std::size_t{1});
     EXPECT_EQ(s.by_zone.at(2), 1);
@@ -213,8 +206,8 @@ void test_basic_stats_mean_median_p90_p99() {
 
     EXPECT_NEAR(s.mean,   30.0, 1e-6);
     EXPECT_NEAR(s.median, 30.0, 1e-6);
-    EXPECT_NEAR(s.p90,    46.0, 1e-6);   // 90% position
-    EXPECT_NEAR(s.p99,    49.6, 1e-6);   // close to max
+    EXPECT_NEAR(s.p90,    46.0, 1e-6);   
+    EXPECT_NEAR(s.p99,    49.6, 1e-6);  
 }
 
 // -----------------
@@ -286,13 +279,13 @@ void test_noise_and_traffic_detectors() {
     core::Window w;
     std::vector<std::string> alerts;
 
-    // Noise: require at least 2 loud events in a 10-minute window
+    // Noise: 
     detectors::NoiseSpike noise_det(/*db_thr=*/80.0,
                                     /*count_thr=*/2,
                                     /*window_min=*/10,
                                     &alerts);
 
-    // Traffic: 2 consecutive minutes below 40 km/h
+    // Traffic: 
     detectors::TrafficCongestion traffic_det(/*speed_thr_kmh=*/40.0,
                                              /*consec_min=*/2,
                                              &alerts);
@@ -359,7 +352,7 @@ void test_aggregator_concurrency_single_vs_multi() {
                std::chrono::minutes{minute};
     };
 
-    // Build a big batch of records for zones 1..4
+    
     std::vector<model::SensorRecord> all;
     for (int zone = 1; zone <= 4; ++zone) {
         for (int i = 0; i < 50; ++i) {
@@ -370,10 +363,10 @@ void test_aggregator_concurrency_single_vs_multi() {
         }
     }
 
-    // single-thread: one big consume
+    // single-thread:
     agg_single.consume(all);
 
-    // multi-thread: group by zone and feed with threads
+    // multi-thread: 
     std::unordered_map<int, std::vector<model::SensorRecord>> per_zone;
     for (auto& rec : all) {
         per_zone[rec.zone_id].push_back(rec);
@@ -453,7 +446,7 @@ void test_replayer_advances_clock_and_calls_processor() {
             (void)batch_size;
             if (calls >= 3) return {};
             ++calls;
-            return std::vector<int>{calls}; // batch with 1 element
+            return std::vector<int>{calls}; 
         }
     };
 
@@ -475,9 +468,9 @@ void test_replayer_advances_clock_and_calls_processor() {
         /*max_ticks=*/-1
     );
 
-    EXPECT_EQ(processed_count, 3); // three batches
+    EXPECT_EQ(processed_count, 3);
     auto dt = duration_cast<minutes>(clock.now() - start);
-    EXPECT_EQ(dt.count(), 3);      // 3 ticks of 60 seconds
+    EXPECT_EQ(dt.count(), 3);     
 }
 
 // -------------------

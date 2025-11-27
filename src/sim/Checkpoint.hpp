@@ -22,8 +22,7 @@ struct CheckpointState {
 small helper to persist simulator state into a binary file
 - saves and loads CheckpointState from disk
 - lets the simulator resume from last run instead of restarting from zero
-- binary format: [int64 nanoseconds since epoch][uint64 batches_processed]
-field: path filesystem path of the checkpoint file (default "checkpoint.bin")
+field: path filesystem path of the checkpoint file 
 */
 struct Checkpoint {
     std::string path{"checkpoint.bin"};
@@ -34,7 +33,7 @@ struct Checkpoint {
 /*
 save current simulator state to disk
 - opens file in binary + trunc mode
-- converts time_point to nanoseconds since epoch (int64)
+- converts time_point to nanoseconds
 - writes nanoseconds and batches_processed in a fixed order
 - throws if file cannot be opened or write fails
 param: state simulator state to persist
@@ -89,7 +88,6 @@ throws: std::runtime_error if file open or read fails
         using sys_clock = std::chrono::system_clock;
         using sys_duration = sys_clock::duration;
 
-        // convert stored nanoseconds to the clock's native duration type
         sys_duration d = std::chrono::duration_cast<sys_duration>(
             std::chrono::nanoseconds{ns64}
         );

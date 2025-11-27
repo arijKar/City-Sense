@@ -25,11 +25,7 @@ main replay loop
   - calls process_batch(clock, batch) so the caller can push data into the pipeline
   - advances the clock by one tick using clock.advance()
 - tick count is mainly for tests / demos so we can limit how long we run
-param: clock          simulated clock that we advance every iteration
-param: reader         object with next_batch(batch_size) method
-param: process_batch  callable with signature like (Clock&, BatchType&)
-param: batch_size     number of elements to request from reader per tick
-param: max_ticks      max number of iterations (default -1 = no limit)
+param: clock, reader, process_batch, batch_size, max_ticks      
 */
     template <typename Reader, typename Processor>
     void run(Clock& clock,
@@ -41,20 +37,18 @@ param: max_ticks      max number of iterations (default -1 = no limit)
         int tick = 0;
 
         for (;;) {
-            // optional limit on ticks (for tests / demo)
+            
             if (max_ticks >= 0 && tick >= max_ticks) {
                 break;
             }
 
             auto batch = reader.next_batch(batch_size);
             if (batch.empty()) {
-                break; // end of input
+                break; 
             }
 
-            // let the caller feed this batch into the pipeline
             process_batch(clock, batch);
 
-            // advance simulated time by one step
             clock.advance();
             ++tick;
         }
